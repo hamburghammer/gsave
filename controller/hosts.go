@@ -122,6 +122,7 @@ func (hr *HostsRouter) postStats(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Something with the DB went wrong.", http.StatusInternalServerError)
 		return
 	}
+	w.WriteHeader(http.StatusCreated)
 }
 
 // getSkipAndLimit from the query of the request.
