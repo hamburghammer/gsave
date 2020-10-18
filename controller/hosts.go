@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 
@@ -46,6 +45,7 @@ func (hr *HostsRouter) getHosts(w http.ResponseWriter, r *http.Request) {
 	pagination, err := hr.getSkipAndLimit(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		logBadRequest.Error(err)
 		return
 	}
 
@@ -53,9 +53,11 @@ func (hr *HostsRouter) getHosts(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, db.ErrHostsNotFound) || errors.Is(err, db.ErrAllEntriesSkipped) {
 			http.Error(w, err.Error(), http.StatusNotFound)
+			logNotFound.Error(err)
 			return
 		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		logInternalServerError.Error(err)
 		return
 	}
 
@@ -65,15 +67,12 @@ func (hr *HostsRouter) getHosts(w http.ResponseWriter, r *http.Request) {
 
 func (hr *HostsRouter) getHost(w http.ResponseWriter, r *http.Request) {
 	hostname := mux.Vars(r)["hostname"]
-	if hostname == "" {
-		http.Error(w, fmt.Sprintf("Missing hostname: '%s' is not a valid hostname\n", hostname), http.StatusBadRequest)
-		return
-	}
 
 	host, err := hr.db.GetHost(hostname)
 	if err != nil {
 		if errors.Is(err, db.ErrHostNotFound) {
 			http.Error(w, fmt.Sprintf("No host with the name '%s' found\n", hostname), http.StatusNotFound)
+			logNotFound.Error(err)
 			return
 		}
 	}
@@ -88,16 +87,19 @@ func (hr *HostsRouter) getStats(w http.ResponseWriter, r *http.Request) {
 	pagination, err := hr.getSkipAndLimit(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		logBadRequest.Error(err)
 		return
 	}
 
 	stats, err := hr.db.GetStatsByHostname(hostname, pagination)
 	if err != nil {
-		if errors.Is(err, db.ErrHostsNotFound) || errors.Is(err, db.ErrAllEntriesSkipped) {
+		if errors.Is(err, db.ErrHostNotFound) || errors.Is(err, db.ErrAllEntriesSkipped) {
 			http.Error(w, err.Error(), http.StatusNotFound)
+			logNotFound.Error(err)
 			return
 		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		logInternalServerError.Error(err)
 		return
 	}
 
@@ -112,14 +114,15 @@ func (hr *HostsRouter) postStats(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&stats)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
-		log.Println(err)
+		logBadRequest.Error(err)
 		return
 	}
-	log.Printf("Received stat: %+v", stats)
+	logPackage.Debugf("Received stat: %+v", stats)
 
 	err = hr.db.InsertStats(hostname, stats)
 	if err != nil {
 		http.Error(w, "Something with the DB went wrong.", http.StatusInternalServerError)
+		logInternalServerError.Error(err)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)

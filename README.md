@@ -6,7 +6,7 @@ In the near future [gmon](https://github.com/hamburghammer/gmon) should use it t
 - [ ] Configure CI/CD pipeline
 - [ ] HTTP testing
 - [ ] Auth Middleware with Basic Auth
-- [ ] Flag configurable
-- [ ] Logging
+- [x] Flag configurable
+- [x] Logging
 - [ ] SQLite DB implementation
 - [ ] Env Variable configurable
