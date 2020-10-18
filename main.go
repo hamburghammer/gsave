@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -16,7 +17,12 @@ import (
 	"github.com/hamburghammer/gsave/db"
 )
 
-const serveAddr = "127.0.0.1:8080"
+var servePort int
+
+func init() {
+	flag.IntVar(&servePort, "port", 8080, "The port for the HTTP server.")
+	flag.Parse()
+}
 
 func main() {
 	log.Println("Initializing the DB...")
@@ -39,7 +45,7 @@ func main() {
 	log.Println("Starting the HTTP server...")
 	server := &http.Server{
 		Handler:      router,
-		Addr:         serveAddr,
+		Addr:         fmt.Sprintf(":%d", servePort),
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
 	}
@@ -75,7 +81,7 @@ func initRouter(hostDB db.HostDB, controllers []controller.Router) *mux.Router {
 
 func startHTTPServer(server *http.Server, wg *sync.WaitGroup) {
 	defer wg.Done()
-	log.Printf("The HTTP server is running: http://%s\n", serveAddr)
+	log.Printf("The HTTP server is running: http://localhost:%d/hosts\n", servePort)
 	if err := server.ListenAndServe(); err != nil {
 		if errors.Is(err, http.ErrServerClosed) {
 			log.Println("Shutting down the server...")
