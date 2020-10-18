@@ -24,7 +24,7 @@ func (db *InMemoryDB) WithCustomStorage(storage map[string]Host) *InMemoryDB {
 
 // GetHosts returns a paginated result of all hosts.
 // It returns an error if no host was found or all entries are beeing skiped.
-func (db *InMemoryDB) GetHosts(skip, limit int) ([]HostInfo, error) {
+func (db *InMemoryDB) GetHosts(pagination Pagination) ([]HostInfo, error) {
 	hosts := make([]HostInfo, 0)
 	for _, value := range db.storage {
 		hosts = append(hosts, value.HostInfo)
@@ -35,13 +35,13 @@ func (db *InMemoryDB) GetHosts(skip, limit int) ([]HostInfo, error) {
 	}
 
 	records := len(hosts)
-	if records < skip {
+	if records < pagination.Skip {
 		return []HostInfo{}, ErrAllEntriesSkipped
-	} else if records < (skip + limit) {
-		return hosts[skip:], nil
+	} else if records < (pagination.Skip + pagination.Limit) {
+		return hosts[pagination.Skip:], nil
 	}
 
-	return hosts[skip:(skip + limit)], nil
+	return hosts[pagination.Skip:(pagination.Skip + pagination.Limit)], nil
 }
 
 // GetHost returns a host with the matching hostname.
@@ -57,39 +57,39 @@ func (db *InMemoryDB) GetHost(hostname string) (HostInfo, error) {
 
 // GetStatsByHostname gets all Stats in a paginated form from a specific host.
 // It returns errors if no host is found or if all entries are beeing skiped.
-func (db *InMemoryDB) GetStatsByHostname(hostname string, skip, limit int) ([]Stats, error) {
+func (db *InMemoryDB) GetStatsByHostname(hostname string, pagination Pagination) ([]Stats, error) {
 	host, found := db.storage[hostname]
 	if !found {
 		return []Stats{}, ErrHostNotFound
 	}
 
 	records := len(host.Stats)
-	if records < skip {
+	if records < pagination.Skip {
 		return []Stats{}, ErrAllEntriesSkipped
-	} else if records < (skip + limit) {
-		return host.Stats[skip:], nil
+	} else if records < (pagination.Skip + pagination.Limit) {
+		return host.Stats[pagination.Skip:], nil
 	}
 
-	return host.Stats[skip:(skip + limit)], nil
+	return host.Stats[pagination.Skip:(pagination.Skip + pagination.Limit)], nil
 }
 
 // InsertStats into the DB.
 // To do so it takes the hostname of the Hostname field and creates a new host inside the DB and/or adds the stat to it.
 // The HostInfos are also beeing updated.
 // This implementation won't return an error but its declared to implement the db.HostDB interface.
-func (db *InMemoryDB) InsertStats(stats Stats) error {
+func (db *InMemoryDB) InsertStats(hostname string, stats Stats) error {
 	db.m.Lock()
 	defer db.m.Unlock()
 
 	host, found := db.storage[stats.Hostname]
 	if !found {
-		hostInfo := HostInfo{Hostname: stats.Hostname, StatsAmount: 1, LastInsert: time.Now()}
+		hostInfo := HostInfo{Hostname: stats.Hostname, DataPoints: 1, LastInsert: time.Now()}
 		db.storage[stats.Hostname] = Host{HostInfo: hostInfo, Stats: []Stats{stats}}
 		return nil
 	}
 
 	host.Stats = append(host.Stats, stats)
-	host.HostInfo.StatsAmount++
+	host.HostInfo.DataPoints++
 	host.HostInfo.LastInsert = time.Now()
 
 	db.storage[stats.Hostname] = host

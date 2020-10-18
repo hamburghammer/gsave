@@ -10,7 +10,7 @@ type Host struct {
 
 // HostInfo a small object to represent the Host object.
 type HostInfo struct {
-	Hostname    string
-	StatsAmount int
-	LastInsert  time.Time
+	Hostname   string
+	DataPoints int
+	LastInsert time.Time
 }
