@@ -25,7 +25,7 @@ type HostsRouter struct {
 // Register registers all routes to the given subrouter.
 func (hr *HostsRouter) Register(subrouter *mux.Router) {
 	hr.subrouter = subrouter
-	subrouter.HandleFunc("", hr.getHosts).Methods(http.MethodGet).Name("GetHosts")
+	subrouter.HandleFunc("", hr.GetHosts).Methods(http.MethodGet).Name("GetHosts")
 	subrouter.HandleFunc("/{hostname}", hr.getHost).Methods(http.MethodGet).Name("GetHost")
 	subrouter.HandleFunc("/{hostname}/stats", hr.getStats).Methods(http.MethodGet).Name("GetStats")
 	subrouter.HandleFunc("/{hostname}/stats", hr.postStats).Methods(http.MethodPost).Name("PostStats")
@@ -41,7 +41,7 @@ func (hr *HostsRouter) GetRouteName() string {
 	return "Hosts"
 }
 
-func (hr *HostsRouter) getHosts(w http.ResponseWriter, r *http.Request) {
+func (hr *HostsRouter) GetHosts(w http.ResponseWriter, r *http.Request) {
 	pagination, err := hr.getSkipAndLimit(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
