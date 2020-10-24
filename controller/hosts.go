@@ -26,7 +26,7 @@ type HostsRouter struct {
 func (hr *HostsRouter) Register(subrouter *mux.Router) {
 	hr.subrouter = subrouter
 	subrouter.HandleFunc("", hr.GetHosts).Methods(http.MethodGet).Name("GetHosts")
-	subrouter.HandleFunc("/{hostname}", hr.getHost).Methods(http.MethodGet).Name("GetHost")
+	subrouter.HandleFunc("/{hostname}", hr.GetHost).Methods(http.MethodGet).Name("GetHost")
 	subrouter.HandleFunc("/{hostname}/stats", hr.getStats).Methods(http.MethodGet).Name("GetStats")
 	subrouter.HandleFunc("/{hostname}/stats", hr.postStats).Methods(http.MethodPost).Name("PostStats")
 }
@@ -66,16 +66,20 @@ func (hr *HostsRouter) GetHosts(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(hosts)
 }
 
-func (hr *HostsRouter) getHost(w http.ResponseWriter, r *http.Request) {
+// GetHost is a HandleFunc to get one host. The host name gets read out of the request path.
+func (hr *HostsRouter) GetHost(w http.ResponseWriter, r *http.Request) {
 	hostname := mux.Vars(r)["hostname"]
 
 	host, err := hr.db.GetHost(hostname)
 	if err != nil {
 		if errors.Is(err, db.ErrHostNotFound) {
-			http.Error(w, fmt.Sprintf("No host with the name '%s' found\n", hostname), http.StatusNotFound)
+			http.Error(w, fmt.Sprintf("No host with the name '%s' found", hostname), http.StatusNotFound)
 			logNotFound.Error(err)
 			return
 		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		logInternalServerError.Error(err)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")

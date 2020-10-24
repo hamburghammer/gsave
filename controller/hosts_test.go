@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/gorilla/mux"
 	"github.com/hamburghammer/gsave/controller"
 	"github.com/hamburghammer/gsave/db"
 	"github.com/stretchr/testify/assert"
@@ -245,12 +246,108 @@ func TestHostsRouter_GetHosts(t *testing.T) {
 	})
 }
 
+func TestGetHost(t *testing.T) {
+	t.Run("search with hostname from url", func(t *testing.T) {
+		hostname := "foo"
+		hostInfo := db.HostInfo{Hostname: hostname, DataPoints: 1}
+		hostDB := &MockHostDB{}
+		hostDB.SetHost(hostInfo)
+		hostsRouter := controller.NewHostsRouter(hostDB)
+
+		req, err := http.NewRequest("GET", "/host/"+hostname, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req = mux.SetURLVars(req, map[string]string{"hostname": hostname})
+
+		rr := httptest.NewRecorder()
+		handler := http.HandlerFunc(hostsRouter.GetHost)
+		handler.ServeHTTP(rr, req)
+
+		assert.Equal(t, hostname, hostDB.GetHostHostname())
+	})
+
+	t.Run("db has an item", func(t *testing.T) {
+		hostname := "foo"
+		hostInfo := db.HostInfo{Hostname: hostname, DataPoints: 1}
+		hostDB := &MockHostDB{}
+		hostDB.SetHost(hostInfo)
+		hostsRouter := controller.NewHostsRouter(hostDB)
+
+		req, err := http.NewRequest("GET", "/host/"+hostname, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req = mux.SetURLVars(req, map[string]string{"hostname": hostname})
+
+		rr := httptest.NewRecorder()
+		handler := http.HandlerFunc(hostsRouter.GetHost)
+		handler.ServeHTTP(rr, req)
+
+		assert.Equal(t, http.StatusOK, rr.Code)
+
+		var gotBody db.HostInfo
+		err = json.NewDecoder(rr.Body).Decode(&gotBody)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		assert.Equal(t, hostInfo, gotBody)
+	})
+
+	t.Run("db returns not found error", func(t *testing.T) {
+		hostname := "foo"
+		hostDB := &MockHostDB{}
+		hostDB.SetHostError(db.ErrHostNotFound)
+		hostsRouter := controller.NewHostsRouter(hostDB)
+
+		req, err := http.NewRequest("GET", "/host/"+hostname, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req = mux.SetURLVars(req, map[string]string{"hostname": hostname})
+
+		rr := httptest.NewRecorder()
+		handler := http.HandlerFunc(hostsRouter.GetHost)
+		handler.ServeHTTP(rr, req)
+
+		assert.Equal(t, http.StatusNotFound, rr.Code)
+
+		wantErr := fmt.Sprintf("No host with the name '%s' found\n", hostname)
+		assert.Equal(t, wantErr, rr.Body.String())
+	})
+
+	t.Run("db returns unknown error", func(t *testing.T) {
+		unknownErr := errors.New("unknown error")
+		hostname := "foo"
+		hostDB := &MockHostDB{}
+		hostDB.SetHostError(unknownErr)
+		hostsRouter := controller.NewHostsRouter(hostDB)
+
+		req, err := http.NewRequest("GET", "/host/"+hostname, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req = mux.SetURLVars(req, map[string]string{"hostname": hostname})
+
+		rr := httptest.NewRecorder()
+		handler := http.HandlerFunc(hostsRouter.GetHost)
+		handler.ServeHTTP(rr, req)
+
+		assert.Equal(t, http.StatusInternalServerError, rr.Code)
+
+		wantErr := fmt.Sprintf("%s\n", unknownErr.Error())
+		assert.Equal(t, wantErr, rr.Body.String())
+	})
+}
+
 type MockHostDB struct {
 	hosts      []db.HostInfo
 	hostsError error
 
 	host      db.HostInfo
 	hostError error
+	hostname  string
 
 	stats      []db.Stats
 	statsError error
@@ -283,7 +380,11 @@ func (m *MockHostDB) SetHost(host db.HostInfo) {
 func (m *MockHostDB) SetHostError(err error) {
 	m.hostError = err
 }
+func (m *MockHostDB) GetHostHostname() string {
+	return m.hostname
+}
 func (m *MockHostDB) GetHost(hostname string) (db.HostInfo, error) {
+	m.hostname = hostname
 	if m.hostError != nil {
 		return db.HostInfo{}, m.hostError
 	}
