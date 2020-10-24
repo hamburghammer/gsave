@@ -2,6 +2,8 @@ package controller_test
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -11,8 +13,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestHostsRouter_GetHosts_WithoutPagination(t *testing.T) {
-	t.Run("should return hosts list", func(t *testing.T) {
+func TestHostsRouter_GetHosts(t *testing.T) {
+	t.Run("db has one item", func(t *testing.T) {
 		stats := []db.HostInfo{
 			{Hostname: "foo"},
 		}
@@ -37,28 +39,210 @@ func TestHostsRouter_GetHosts_WithoutPagination(t *testing.T) {
 		assert.Equal(t, stats, gotBody)
 	})
 
-	// t.Run("", func(t *testing.T) {
-	// 	stats := []db.HostInfo{
-	// 		{Hostname: "foo"},
-	// 		{Hostname: "foo"},
-	// 		{Hostname: "bar"},
-	// 	}
-	// 	hostDB := &MockHostDB{}
-	// 	hostDB.SetHosts(stats)
-	// 	hostsRouter := controller.NewHostsRouter(hostDB)
+	t.Run("db is empty", func(t *testing.T) {
+		stats := []db.HostInfo{}
+		hostDB := &MockHostDB{}
+		hostDB.SetHosts(stats)
+		hostsRouter := controller.NewHostsRouter(hostDB)
 
-	// 	req, err := http.NewRequest("GET", "/entries", nil)
-	// 	if err != nil {
-	// 		t.Fatal(err)
-	// 	}
-	// 	rr := httptest.NewRecorder()
-	// 	handler := http.HandlerFunc(hostsRouter.GetHosts)
-	// 	handler.ServeHTTP(rr, req)
-	// 	if status := rr.Code; status != http.StatusOK {
-	// 		t.Errorf("handler returned wrong status code: got %v want %v",
-	// 			status, http.StatusOK)
-	// 	}
-	// })
+		req, err := http.NewRequest("GET", "/hosts", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rr := httptest.NewRecorder()
+		handler := http.HandlerFunc(hostsRouter.GetHosts)
+		handler.ServeHTTP(rr, req)
+
+		assert.Equal(t, http.StatusOK, rr.Code)
+
+		var gotBody []db.HostInfo
+		json.Unmarshal(rr.Body.Bytes(), &gotBody)
+
+		assert.Equal(t, stats, gotBody)
+	})
+
+	t.Run("db returns hosts not found error", func(t *testing.T) {
+		hostDB := &MockHostDB{}
+		hostDB.SetHostsError(db.ErrHostsNotFound)
+		hostsRouter := controller.NewHostsRouter(hostDB)
+
+		req, err := http.NewRequest("GET", "/hosts", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rr := httptest.NewRecorder()
+		handler := http.HandlerFunc(hostsRouter.GetHosts)
+		handler.ServeHTTP(rr, req)
+
+		assert.Equal(t, http.StatusNotFound, rr.Code)
+
+		wantBody := fmt.Sprintf("%s\n", db.ErrHostsNotFound.Error())
+		assert.Equal(t, wantBody, rr.Body.String())
+	})
+
+	t.Run("db returns all entities skipped error", func(t *testing.T) {
+		hostDB := &MockHostDB{}
+		hostDB.SetHostsError(db.ErrAllEntriesSkipped)
+		hostsRouter := controller.NewHostsRouter(hostDB)
+
+		req, err := http.NewRequest("GET", "/hosts", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rr := httptest.NewRecorder()
+		handler := http.HandlerFunc(hostsRouter.GetHosts)
+		handler.ServeHTTP(rr, req)
+
+		assert.Equal(t, http.StatusNotFound, rr.Code)
+
+		wantBody := fmt.Sprintf("%s\n", db.ErrAllEntriesSkipped.Error())
+		assert.Equal(t, wantBody, rr.Body.String())
+	})
+
+	t.Run("db returns unknown error", func(t *testing.T) {
+		unknownErr := errors.New("some error")
+		hostDB := &MockHostDB{}
+		hostDB.SetHostsError(unknownErr)
+		hostsRouter := controller.NewHostsRouter(hostDB)
+
+		req, err := http.NewRequest("GET", "/hosts", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rr := httptest.NewRecorder()
+		handler := http.HandlerFunc(hostsRouter.GetHosts)
+		handler.ServeHTTP(rr, req)
+
+		assert.Equal(t, http.StatusInternalServerError, rr.Code)
+
+		wantBody := fmt.Sprintf("%s\n", unknownErr.Error())
+		assert.Equal(t, wantBody, rr.Body.String())
+	})
+
+	t.Run("pagination", func(t *testing.T) {
+		t.Run("default pagination has a limit of 10", func(t *testing.T) {
+			hostDB := &MockHostDB{}
+			hostsRouter := controller.NewHostsRouter(hostDB)
+
+			req, err := http.NewRequest("GET", "/hosts", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			rr := httptest.NewRecorder()
+			handler := http.HandlerFunc(hostsRouter.GetHosts)
+			handler.ServeHTTP(rr, req)
+
+			assert.NotEqual(t, db.Pagination{}, hostDB.GetPagination())
+			assert.Equal(t, 10, hostDB.GetPagination().Limit)
+		})
+
+		t.Run("default pagination has a skip of 0", func(t *testing.T) {
+			hostDB := &MockHostDB{}
+			hostsRouter := controller.NewHostsRouter(hostDB)
+
+			req, err := http.NewRequest("GET", "/hosts", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			rr := httptest.NewRecorder()
+			handler := http.HandlerFunc(hostsRouter.GetHosts)
+			handler.ServeHTTP(rr, req)
+
+			assert.NotEqual(t, db.Pagination{}, hostDB.GetPagination())
+			assert.Equal(t, 0, hostDB.GetPagination().Skip)
+		})
+
+		t.Run("sets custom limit", func(t *testing.T) {
+			hostDB := &MockHostDB{}
+			hostsRouter := controller.NewHostsRouter(hostDB)
+
+			req, err := http.NewRequest("GET", "/hosts?limit=2", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			rr := httptest.NewRecorder()
+			handler := http.HandlerFunc(hostsRouter.GetHosts)
+			handler.ServeHTTP(rr, req)
+
+			assert.Equal(t, http.StatusOK, rr.Code)
+
+			assert.NotEqual(t, db.Pagination{}, hostDB.GetPagination())
+			assert.Equal(t, 2, hostDB.GetPagination().Limit)
+		})
+
+		t.Run("sets negative limit", func(t *testing.T) {
+			hostDB := &MockHostDB{}
+			hostsRouter := controller.NewHostsRouter(hostDB)
+
+			req, err := http.NewRequest("GET", "/hosts?limit=-2", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			rr := httptest.NewRecorder()
+			handler := http.HandlerFunc(hostsRouter.GetHosts)
+			handler.ServeHTTP(rr, req)
+
+			assert.Equal(t, http.StatusBadRequest, rr.Code)
+
+			wantErr := "No negative number allowed for the query param 'limit'\n"
+			assert.Equal(t, wantErr, rr.Body.String())
+		})
+
+		t.Run("sets negative skip", func(t *testing.T) {
+			hostDB := &MockHostDB{}
+			hostsRouter := controller.NewHostsRouter(hostDB)
+
+			req, err := http.NewRequest("GET", "/hosts?skip=-2", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			rr := httptest.NewRecorder()
+			handler := http.HandlerFunc(hostsRouter.GetHosts)
+			handler.ServeHTTP(rr, req)
+
+			assert.Equal(t, http.StatusBadRequest, rr.Code)
+
+			wantErr := "No negative number allowed for the query param 'skip'\n"
+			assert.Equal(t, wantErr, rr.Body.String())
+		})
+
+		t.Run("sets skip to not a number", func(t *testing.T) {
+			hostDB := &MockHostDB{}
+			hostsRouter := controller.NewHostsRouter(hostDB)
+
+			req, err := http.NewRequest("GET", "/hosts?skip=a", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			rr := httptest.NewRecorder()
+			handler := http.HandlerFunc(hostsRouter.GetHosts)
+			handler.ServeHTTP(rr, req)
+
+			assert.Equal(t, http.StatusBadRequest, rr.Code)
+
+			wantErr := "Query param 'skip' expected to be a number: a is not a number\n"
+			assert.Equal(t, wantErr, rr.Body.String())
+		})
+
+		t.Run("sets limit to not a number", func(t *testing.T) {
+			hostDB := &MockHostDB{}
+			hostsRouter := controller.NewHostsRouter(hostDB)
+
+			req, err := http.NewRequest("GET", "/hosts?limit=a", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			rr := httptest.NewRecorder()
+			handler := http.HandlerFunc(hostsRouter.GetHosts)
+			handler.ServeHTTP(rr, req)
+
+			assert.Equal(t, http.StatusBadRequest, rr.Code)
+
+			wantErr := "Query param 'limit' expected to be a number: a is not a number\n"
+			assert.Equal(t, wantErr, rr.Body.String())
+		})
+
+	})
 }
 
 type MockHostDB struct {
@@ -73,6 +257,8 @@ type MockHostDB struct {
 
 	insertedStat      db.Stats
 	insertedStatError error
+
+	pagination db.Pagination
 }
 
 // GetHosts
@@ -83,6 +269,7 @@ func (m *MockHostDB) SetHostsError(err error) {
 	m.hostsError = err
 }
 func (m *MockHostDB) GetHosts(pagination db.Pagination) ([]db.HostInfo, error) {
+	m.pagination = pagination
 	if m.hostsError != nil {
 		return []db.HostInfo{}, m.hostsError
 	}
@@ -129,4 +316,8 @@ func (m *MockHostDB) InsertStats(hostname string, stats db.Stats) error {
 		return m.hostError
 	}
 	return nil
+}
+
+func (m *MockHostDB) GetPagination() db.Pagination {
+	return m.pagination
 }

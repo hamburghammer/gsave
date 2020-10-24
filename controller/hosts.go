@@ -41,6 +41,7 @@ func (hr *HostsRouter) GetRouteName() string {
 	return "Hosts"
 }
 
+// GetHosts is a HandleFunc to get hosts out of the db with optional pagination as query params.
 func (hr *HostsRouter) GetHosts(w http.ResponseWriter, r *http.Request) {
 	pagination, err := hr.getSkipAndLimit(r)
 	if err != nil {
@@ -141,6 +142,9 @@ func (hr *HostsRouter) getSkipAndLimit(r *http.Request) (db.Pagination, error) {
 	if err != nil {
 		return db.Pagination{}, fmt.Errorf("Query param 'limit' expected to be a number: %s is not a number", strLimit)
 	}
+	if limit < 0 {
+		return db.Pagination{}, fmt.Errorf("No negative number allowed for the query param 'limit'")
+	}
 
 	strSkip := r.FormValue("skip")
 	if strSkip == "" {
@@ -149,6 +153,9 @@ func (hr *HostsRouter) getSkipAndLimit(r *http.Request) (db.Pagination, error) {
 	skip, err := strconv.ParseInt(strSkip, 10, 64)
 	if err != nil {
 		return db.Pagination{}, fmt.Errorf("Query param 'skip' expected to be a number: %s is not a number", strSkip)
+	}
+	if skip < 0 {
+		return db.Pagination{}, fmt.Errorf("No negative number allowed for the query param 'skip'")
 	}
 
 	return db.Pagination{Skip: int(skip), Limit: int(limit)}, nil
