@@ -1,6 +1,19 @@
 package controller
 
-import "github.com/gorilla/mux"
+import (
+	"net/http"
+
+	"github.com/gorilla/mux"
+	log "github.com/sirupsen/logrus"
+)
+
+var (
+	logPackage             = log.WithField("Package", "controller")
+	logRequestError        = logPackage.WithField("RequestStatus", "Error")
+	logBadRequest          = logRequestError.WithField("StatusCode", http.StatusBadRequest)
+	logNotFound            = logRequestError.WithField("StatusCode", http.StatusNotFound)
+	logInternalServerError = logRequestError.WithField("StatusCode", http.StatusInternalServerError)
+)
 
 // Router is an interface that should be implemented by any controller
 // to give some information and to register the routes.

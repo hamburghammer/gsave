@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -14,12 +14,38 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/hamburghammer/gsave/controller"
 	"github.com/hamburghammer/gsave/db"
+	log "github.com/sirupsen/logrus"
 )
 
-const serveAddr = "127.0.0.1:8080"
+var (
+	servePort  int
+	logPackage = log.WithField("Package", "main")
+)
+
+func init() {
+	flag.IntVar(&servePort, "port", 8080, "The port for the HTTP server.")
+	verbose := flag.Bool("verbose", false, "Enable debug logging output.")
+	quiet := flag.Bool("quiet", false, "Disable loging output only prints errors.")
+	jsonLogging := flag.Bool("json", false, "Set the logging format to json.")
+	flag.Parse()
+
+	log.SetFormatter(&log.TextFormatter{
+		FullTimestamp: true,
+	})
+
+	if *verbose {
+		log.SetLevel(log.DebugLevel)
+	}
+	if *quiet {
+		log.SetLevel(log.ErrorLevel)
+	}
+	if *jsonLogging {
+		log.SetFormatter(&log.JSONFormatter{})
+	}
+}
 
 func main() {
-	log.Println("Initializing the DB...")
+	logPackage.Info("Initializing the DB...")
 	stats := []db.Stats{
 		{Hostname: "foo", CPU: 0},
 		{Hostname: "foo", CPU: 1},
@@ -27,19 +53,19 @@ func main() {
 	}
 	hostDB, err := initDB(stats)
 	if err != nil {
-		log.Fatal(err)
+		logPackage.Fatal(err)
 	}
 
-	log.Println("Initializing the routes...")
+	logPackage.Info("Initializing the routes...")
 	controllers := []controller.Router{
 		controller.NewHostsRouter(hostDB),
 	}
 	router := initRouter(hostDB, controllers)
 
-	log.Println("Starting the HTTP server...")
+	logPackage.Info("Starting the HTTP server...")
 	server := &http.Server{
 		Handler:      router,
-		Addr:         serveAddr,
+		Addr:         fmt.Sprintf(":%d", servePort),
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
 	}
@@ -75,13 +101,13 @@ func initRouter(hostDB db.HostDB, controllers []controller.Router) *mux.Router {
 
 func startHTTPServer(server *http.Server, wg *sync.WaitGroup) {
 	defer wg.Done()
-	log.Printf("The HTTP server is running: http://%s\n", serveAddr)
+	logPackage.Infof("The HTTP server is running: http://localhost:%d/hosts\n", servePort)
 	if err := server.ListenAndServe(); err != nil {
 		if errors.Is(err, http.ErrServerClosed) {
-			log.Println("Shutting down the server...")
+			logPackage.Info("Shutting down the server...")
 			return
 		}
-		log.Fatalf("An unexpected error happend while running the HTTP server: %v\n", err)
+		logPackage.Fatalf("An unexpected error happend while running the HTTP server: %v\n", err)
 	}
 }
 
@@ -96,6 +122,6 @@ func listenToStopHTTPServer(server *http.Server, wg *sync.WaitGroup) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := server.Shutdown(ctx); err != nil {
-		log.Printf("An error happened on the shutdown of the server: %v", err)
+		logPackage.Errorf("An error happened on the shutdown of the server: %v", err)
 	}
 }
