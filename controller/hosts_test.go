@@ -1,6 +1,7 @@
 package controller_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -512,6 +513,7 @@ func TestGetStat(t *testing.T) {
 		handler.ServeHTTP(rr, req)
 
 		assert.Equal(t, http.StatusOK, rr.Code)
+		assert.Equal(t, hostname, hostDB.GetStatsByHostnameHostname())
 
 		var gotBody []db.Stats
 		err = json.NewDecoder(rr.Body).Decode(&gotBody)
@@ -590,22 +592,89 @@ func TestGetStat(t *testing.T) {
 	})
 }
 
+func TestInsertStat(t *testing.T) {
+	t.Run("insert new stat into the db", func(t *testing.T) {
+		hostname := "foo"
+		stat := db.Stats{Hostname: hostname}
+		hostDB := &MockHostDB{}
+		hostsRouter := controller.NewHostsRouter(hostDB)
+
+		requestBody, _ := json.Marshal(stat)
+		req, err := http.NewRequest("POST", "/"+hostname+"/stats", bytes.NewBuffer(requestBody))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req = mux.SetURLVars(req, map[string]string{"hostname": hostname})
+
+		rr := httptest.NewRecorder()
+		handler := http.HandlerFunc(hostsRouter.PostStats)
+		handler.ServeHTTP(rr, req)
+
+		assert.Equal(t, http.StatusCreated, rr.Code)
+		assert.Equal(t, hostname, hostDB.GetInsertStatsHostname())
+
+		assert.Equal(t, stat, hostDB.GetInsertedStats())
+	})
+
+	t.Run("missing body", func(t *testing.T) {
+		hostname := "foo"
+		hostDB := &MockHostDB{}
+		hostsRouter := controller.NewHostsRouter(hostDB)
+
+		req, err := http.NewRequest("POST", "/"+hostname+"/stats", bytes.NewBuffer([]byte{}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req = mux.SetURLVars(req, map[string]string{"hostname": hostname})
+
+		rr := httptest.NewRecorder()
+		handler := http.HandlerFunc(hostsRouter.PostStats)
+		handler.ServeHTTP(rr, req)
+
+		assert.Equal(t, http.StatusBadRequest, rr.Code)
+		assert.Equal(t, "Could not read the body\n", rr.Body.String())
+	})
+
+	t.Run("db returns an unknown error", func(t *testing.T) {
+		hostname := "foo"
+		unknownErr := errors.New("unknown error")
+		stat := db.Stats{Hostname: hostname}
+		hostDB := &MockHostDB{}
+		hostDB.SetInsertStatsError(unknownErr)
+		hostsRouter := controller.NewHostsRouter(hostDB)
+
+		requestBody, _ := json.Marshal(stat)
+		req, err := http.NewRequest("POST", "/"+hostname+"/stats", bytes.NewBuffer(requestBody))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req = mux.SetURLVars(req, map[string]string{"hostname": hostname})
+
+		rr := httptest.NewRecorder()
+		handler := http.HandlerFunc(hostsRouter.PostStats)
+		handler.ServeHTTP(rr, req)
+
+		assert.Equal(t, http.StatusInternalServerError, rr.Code)
+		assert.Equal(t, "Something with the DB went wrong.\n", rr.Body.String())
+	})
+
+}
+
 type MockHostDB struct {
 	hosts      []db.HostInfo
 	hostsError error
 
 	host      db.HostInfo
 	hostError error
-	hostname  string
 
-	stats         []db.Stats
-	statsError    error
-	statsHostname string
+	stats      []db.Stats
+	statsError error
 
 	insertedStat      db.Stats
 	insertedStatError error
 
 	pagination db.Pagination
+	hostname   string
 }
 
 // GetHosts
@@ -649,10 +718,10 @@ func (m *MockHostDB) SetStatsByHostnameError(err error) {
 	m.statsError = err
 }
 func (m *MockHostDB) GetStatsByHostnameHostname() string {
-	return m.statsHostname
+	return m.hostname
 }
 func (m *MockHostDB) GetStatsByHostname(hostname string, pagination db.Pagination) ([]db.Stats, error) {
-	m.statsHostname = hostname
+	m.hostname = hostname
 	m.pagination = pagination
 	if m.statsError != nil {
 		return []db.Stats{}, m.statsError
@@ -667,9 +736,14 @@ func (m *MockHostDB) GetInsertedStats() db.Stats {
 func (m *MockHostDB) SetInsertStatsError(err error) {
 	m.insertedStatError = err
 }
+func (m *MockHostDB) GetInsertStatsHostname() string {
+	return m.hostname
+}
 func (m *MockHostDB) InsertStats(hostname string, stats db.Stats) error {
-	if m.statsError != nil {
-		return m.hostError
+	m.hostname = hostname
+	m.insertedStat = stats
+	if m.insertedStatError != nil {
+		return m.insertedStatError
 	}
 	return nil
 }

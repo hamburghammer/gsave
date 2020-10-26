@@ -28,7 +28,7 @@ func (hr *HostsRouter) Register(subrouter *mux.Router) {
 	subrouter.HandleFunc("", hr.GetHosts).Methods(http.MethodGet).Name("GetHosts")
 	subrouter.HandleFunc("/{hostname}", hr.GetHost).Methods(http.MethodGet).Name("GetHost")
 	subrouter.HandleFunc("/{hostname}/stats", hr.GetStats).Methods(http.MethodGet).Name("GetStats")
-	subrouter.HandleFunc("/{hostname}/stats", hr.postStats).Methods(http.MethodPost).Name("PostStats")
+	subrouter.HandleFunc("/{hostname}/stats", hr.PostStats).Methods(http.MethodPost).Name("PostStats")
 }
 
 // GetPrefix returns the the pre route for this controller.
@@ -117,17 +117,17 @@ func (hr *HostsRouter) GetStats(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(stats)
 }
 
-func (hr *HostsRouter) postStats(w http.ResponseWriter, r *http.Request) {
+// PostStats is a HandleFunc to insert a new data point into the db.
+func (hr *HostsRouter) PostStats(w http.ResponseWriter, r *http.Request) {
 	hostname := mux.Vars(r)["hostname"]
 
 	var stats db.Stats
 	err := json.NewDecoder(r.Body).Decode(&stats)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		logBadRequest.Error(err)
+		http.Error(w, "Could not read the body", http.StatusBadRequest)
+		logBadRequest.Error(fmt.Sprintf("JSON error decoding new stat: %v", err))
 		return
 	}
-	logPackage.Debugf("Received stat: %+v", stats)
 
 	err = hr.db.InsertStats(hostname, stats)
 	if err != nil {
