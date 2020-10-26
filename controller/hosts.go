@@ -27,7 +27,7 @@ func (hr *HostsRouter) Register(subrouter *mux.Router) {
 	hr.subrouter = subrouter
 	subrouter.HandleFunc("", hr.GetHosts).Methods(http.MethodGet).Name("GetHosts")
 	subrouter.HandleFunc("/{hostname}", hr.GetHost).Methods(http.MethodGet).Name("GetHost")
-	subrouter.HandleFunc("/{hostname}/stats", hr.getStats).Methods(http.MethodGet).Name("GetStats")
+	subrouter.HandleFunc("/{hostname}/stats", hr.GetStats).Methods(http.MethodGet).Name("GetStats")
 	subrouter.HandleFunc("/{hostname}/stats", hr.postStats).Methods(http.MethodPost).Name("PostStats")
 }
 
@@ -86,7 +86,8 @@ func (hr *HostsRouter) GetHost(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(host)
 }
 
-func (hr *HostsRouter) getStats(w http.ResponseWriter, r *http.Request) {
+// GetStats is a HandleFunc to get paginated stats for a host.
+func (hr *HostsRouter) GetStats(w http.ResponseWriter, r *http.Request) {
 	hostname := mux.Vars(r)["hostname"]
 
 	pagination, err := hr.getSkipAndLimit(r)
@@ -98,8 +99,12 @@ func (hr *HostsRouter) getStats(w http.ResponseWriter, r *http.Request) {
 
 	stats, err := hr.db.GetStatsByHostname(hostname, pagination)
 	if err != nil {
-		if errors.Is(err, db.ErrHostNotFound) || errors.Is(err, db.ErrAllEntriesSkipped) {
-			http.Error(w, err.Error(), http.StatusNotFound)
+		if errors.Is(err, db.ErrHostNotFound) {
+			http.Error(w, fmt.Sprintf("No host with the name '%s' found", hostname), http.StatusNotFound)
+			logNotFound.Error(err)
+			return
+		} else if errors.Is(err, db.ErrAllEntriesSkipped) {
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			logNotFound.Error(err)
 			return
 		}
