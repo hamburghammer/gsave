@@ -68,6 +68,7 @@ func main() {
 		Addr:         fmt.Sprintf(":%d", servePort),
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
+		IdleTimeout:  120 * time.Second,
 	}
 
 	var wg sync.WaitGroup
