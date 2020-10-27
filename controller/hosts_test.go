@@ -12,7 +12,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/hamburghammer/gsave/controller"
 	"github.com/hamburghammer/gsave/db"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestHostsRouter_GetHosts(t *testing.T) {
@@ -32,13 +32,13 @@ func TestHostsRouter_GetHosts(t *testing.T) {
 		handler := http.HandlerFunc(hostsRouter.GetHosts)
 		handler.ServeHTTP(rr, req)
 
-		assert.Equal(t, http.StatusOK, rr.Code)
-		assert.Equal(t, "application/json", rr.Header().Get("Content-Type"))
+		require.Equal(t, http.StatusOK, rr.Code)
+		require.Equal(t, "application/json", rr.Header().Get("Content-Type"))
 
 		var gotBody []db.HostInfo
 		json.Unmarshal(rr.Body.Bytes(), &gotBody)
 
-		assert.Equal(t, stats, gotBody)
+		require.Equal(t, stats, gotBody)
 	})
 
 	t.Run("db is empty", func(t *testing.T) {
@@ -55,12 +55,12 @@ func TestHostsRouter_GetHosts(t *testing.T) {
 		handler := http.HandlerFunc(hostsRouter.GetHosts)
 		handler.ServeHTTP(rr, req)
 
-		assert.Equal(t, http.StatusOK, rr.Code)
+		require.Equal(t, http.StatusOK, rr.Code)
 
 		var gotBody []db.HostInfo
 		json.Unmarshal(rr.Body.Bytes(), &gotBody)
 
-		assert.Equal(t, stats, gotBody)
+		require.Equal(t, stats, gotBody)
 	})
 
 	t.Run("db returns hosts not found error", func(t *testing.T) {
@@ -76,10 +76,10 @@ func TestHostsRouter_GetHosts(t *testing.T) {
 		handler := http.HandlerFunc(hostsRouter.GetHosts)
 		handler.ServeHTTP(rr, req)
 
-		assert.Equal(t, http.StatusNotFound, rr.Code)
+		require.Equal(t, http.StatusNotFound, rr.Code)
 
 		wantBody := fmt.Sprintf("%s\n", db.ErrHostsNotFound.Error())
-		assert.Equal(t, wantBody, rr.Body.String())
+		require.Equal(t, wantBody, rr.Body.String())
 	})
 
 	t.Run("db returns all entities skipped error", func(t *testing.T) {
@@ -95,10 +95,10 @@ func TestHostsRouter_GetHosts(t *testing.T) {
 		handler := http.HandlerFunc(hostsRouter.GetHosts)
 		handler.ServeHTTP(rr, req)
 
-		assert.Equal(t, http.StatusNotFound, rr.Code)
+		require.Equal(t, http.StatusNotFound, rr.Code)
 
 		wantBody := fmt.Sprintf("%s\n", db.ErrAllEntriesSkipped.Error())
-		assert.Equal(t, wantBody, rr.Body.String())
+		require.Equal(t, wantBody, rr.Body.String())
 	})
 
 	t.Run("db returns unknown error", func(t *testing.T) {
@@ -115,10 +115,10 @@ func TestHostsRouter_GetHosts(t *testing.T) {
 		handler := http.HandlerFunc(hostsRouter.GetHosts)
 		handler.ServeHTTP(rr, req)
 
-		assert.Equal(t, http.StatusInternalServerError, rr.Code)
+		require.Equal(t, http.StatusInternalServerError, rr.Code)
 
 		wantBody := fmt.Sprintf("%s\n", unknownErr.Error())
-		assert.Equal(t, wantBody, rr.Body.String())
+		require.Equal(t, wantBody, rr.Body.String())
 	})
 
 	t.Run("pagination", func(t *testing.T) {
@@ -134,8 +134,8 @@ func TestHostsRouter_GetHosts(t *testing.T) {
 			handler := http.HandlerFunc(hostsRouter.GetHosts)
 			handler.ServeHTTP(rr, req)
 
-			assert.NotEqual(t, db.Pagination{}, hostDB.GetPagination())
-			assert.Equal(t, 10, hostDB.GetPagination().Limit)
+			require.NotEqual(t, db.Pagination{}, hostDB.GetPagination())
+			require.Equal(t, 10, hostDB.GetPagination().Limit)
 		})
 
 		t.Run("default pagination has a skip of 0", func(t *testing.T) {
@@ -150,8 +150,8 @@ func TestHostsRouter_GetHosts(t *testing.T) {
 			handler := http.HandlerFunc(hostsRouter.GetHosts)
 			handler.ServeHTTP(rr, req)
 
-			assert.NotEqual(t, db.Pagination{}, hostDB.GetPagination())
-			assert.Equal(t, 0, hostDB.GetPagination().Skip)
+			require.NotEqual(t, db.Pagination{}, hostDB.GetPagination())
+			require.Equal(t, 0, hostDB.GetPagination().Skip)
 		})
 
 		t.Run("sets custom limit", func(t *testing.T) {
@@ -166,10 +166,10 @@ func TestHostsRouter_GetHosts(t *testing.T) {
 			handler := http.HandlerFunc(hostsRouter.GetHosts)
 			handler.ServeHTTP(rr, req)
 
-			assert.Equal(t, http.StatusOK, rr.Code)
+			require.Equal(t, http.StatusOK, rr.Code)
 
-			assert.NotEqual(t, db.Pagination{}, hostDB.GetPagination())
-			assert.Equal(t, 2, hostDB.GetPagination().Limit)
+			require.NotEqual(t, db.Pagination{}, hostDB.GetPagination())
+			require.Equal(t, 2, hostDB.GetPagination().Limit)
 		})
 
 		t.Run("sets negative limit", func(t *testing.T) {
@@ -184,10 +184,10 @@ func TestHostsRouter_GetHosts(t *testing.T) {
 			handler := http.HandlerFunc(hostsRouter.GetHosts)
 			handler.ServeHTTP(rr, req)
 
-			assert.Equal(t, http.StatusBadRequest, rr.Code)
+			require.Equal(t, http.StatusBadRequest, rr.Code)
 
 			wantErr := "No negative number allowed for the query param 'limit'\n"
-			assert.Equal(t, wantErr, rr.Body.String())
+			require.Equal(t, wantErr, rr.Body.String())
 		})
 
 		t.Run("sets negative skip", func(t *testing.T) {
@@ -202,10 +202,10 @@ func TestHostsRouter_GetHosts(t *testing.T) {
 			handler := http.HandlerFunc(hostsRouter.GetHosts)
 			handler.ServeHTTP(rr, req)
 
-			assert.Equal(t, http.StatusBadRequest, rr.Code)
+			require.Equal(t, http.StatusBadRequest, rr.Code)
 
 			wantErr := "No negative number allowed for the query param 'skip'\n"
-			assert.Equal(t, wantErr, rr.Body.String())
+			require.Equal(t, wantErr, rr.Body.String())
 		})
 
 		t.Run("sets skip to not a number", func(t *testing.T) {
@@ -220,10 +220,10 @@ func TestHostsRouter_GetHosts(t *testing.T) {
 			handler := http.HandlerFunc(hostsRouter.GetHosts)
 			handler.ServeHTTP(rr, req)
 
-			assert.Equal(t, http.StatusBadRequest, rr.Code)
+			require.Equal(t, http.StatusBadRequest, rr.Code)
 
 			wantErr := "Query param 'skip' expected to be a number: a is not a number\n"
-			assert.Equal(t, wantErr, rr.Body.String())
+			require.Equal(t, wantErr, rr.Body.String())
 		})
 
 		t.Run("sets limit to not a number", func(t *testing.T) {
@@ -238,10 +238,10 @@ func TestHostsRouter_GetHosts(t *testing.T) {
 			handler := http.HandlerFunc(hostsRouter.GetHosts)
 			handler.ServeHTTP(rr, req)
 
-			assert.Equal(t, http.StatusBadRequest, rr.Code)
+			require.Equal(t, http.StatusBadRequest, rr.Code)
 
 			wantErr := "Query param 'limit' expected to be a number: a is not a number\n"
-			assert.Equal(t, wantErr, rr.Body.String())
+			require.Equal(t, wantErr, rr.Body.String())
 		})
 
 	})
@@ -265,7 +265,7 @@ func TestGetHost(t *testing.T) {
 		handler := http.HandlerFunc(hostsRouter.GetHost)
 		handler.ServeHTTP(rr, req)
 
-		assert.Equal(t, hostname, hostDB.GetHostHostname())
+		require.Equal(t, hostname, hostDB.GetHostHostname())
 	})
 
 	t.Run("db has an item", func(t *testing.T) {
@@ -285,8 +285,8 @@ func TestGetHost(t *testing.T) {
 		handler := http.HandlerFunc(hostsRouter.GetHost)
 		handler.ServeHTTP(rr, req)
 
-		assert.Equal(t, http.StatusOK, rr.Code)
-		assert.Equal(t, "application/json", rr.Header().Get("Content-Type"))
+		require.Equal(t, http.StatusOK, rr.Code)
+		require.Equal(t, "application/json", rr.Header().Get("Content-Type"))
 
 		var gotBody db.HostInfo
 		err = json.NewDecoder(rr.Body).Decode(&gotBody)
@@ -294,7 +294,7 @@ func TestGetHost(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		assert.Equal(t, hostInfo, gotBody)
+		require.Equal(t, hostInfo, gotBody)
 	})
 
 	t.Run("db returns not found error", func(t *testing.T) {
@@ -313,10 +313,10 @@ func TestGetHost(t *testing.T) {
 		handler := http.HandlerFunc(hostsRouter.GetHost)
 		handler.ServeHTTP(rr, req)
 
-		assert.Equal(t, http.StatusNotFound, rr.Code)
+		require.Equal(t, http.StatusNotFound, rr.Code)
 
 		wantErr := fmt.Sprintf("No host with the name '%s' found\n", hostname)
-		assert.Equal(t, wantErr, rr.Body.String())
+		require.Equal(t, wantErr, rr.Body.String())
 	})
 
 	t.Run("db returns unknown error", func(t *testing.T) {
@@ -336,10 +336,10 @@ func TestGetHost(t *testing.T) {
 		handler := http.HandlerFunc(hostsRouter.GetHost)
 		handler.ServeHTTP(rr, req)
 
-		assert.Equal(t, http.StatusInternalServerError, rr.Code)
+		require.Equal(t, http.StatusInternalServerError, rr.Code)
 
 		wantErr := fmt.Sprintf("%s\n", unknownErr.Error())
-		assert.Equal(t, wantErr, rr.Body.String())
+		require.Equal(t, wantErr, rr.Body.String())
 	})
 }
 
@@ -358,8 +358,8 @@ func TestGetStat(t *testing.T) {
 			handler := http.HandlerFunc(hostsRouter.GetStats)
 			handler.ServeHTTP(rr, req)
 
-			assert.NotEqual(t, db.Pagination{}, hostDB.GetPagination())
-			assert.Equal(t, 10, hostDB.GetPagination().Limit)
+			require.NotEqual(t, db.Pagination{}, hostDB.GetPagination())
+			require.Equal(t, 10, hostDB.GetPagination().Limit)
 		})
 
 		t.Run("default pagination has a skip of 0", func(t *testing.T) {
@@ -375,8 +375,8 @@ func TestGetStat(t *testing.T) {
 			handler := http.HandlerFunc(hostsRouter.GetStats)
 			handler.ServeHTTP(rr, req)
 
-			assert.NotEqual(t, db.Pagination{}, hostDB.GetPagination())
-			assert.Equal(t, 0, hostDB.GetPagination().Skip)
+			require.NotEqual(t, db.Pagination{}, hostDB.GetPagination())
+			require.Equal(t, 0, hostDB.GetPagination().Skip)
 		})
 
 		t.Run("sets custom limit", func(t *testing.T) {
@@ -392,10 +392,10 @@ func TestGetStat(t *testing.T) {
 			handler := http.HandlerFunc(hostsRouter.GetStats)
 			handler.ServeHTTP(rr, req)
 
-			assert.Equal(t, http.StatusOK, rr.Code)
+			require.Equal(t, http.StatusOK, rr.Code)
 
-			assert.NotEqual(t, db.Pagination{}, hostDB.GetPagination())
-			assert.Equal(t, 2, hostDB.GetPagination().Limit)
+			require.NotEqual(t, db.Pagination{}, hostDB.GetPagination())
+			require.Equal(t, 2, hostDB.GetPagination().Limit)
 		})
 
 		t.Run("sets negative limit", func(t *testing.T) {
@@ -411,10 +411,10 @@ func TestGetStat(t *testing.T) {
 			handler := http.HandlerFunc(hostsRouter.GetStats)
 			handler.ServeHTTP(rr, req)
 
-			assert.Equal(t, http.StatusBadRequest, rr.Code)
+			require.Equal(t, http.StatusBadRequest, rr.Code)
 
 			wantErr := "No negative number allowed for the query param 'limit'\n"
-			assert.Equal(t, wantErr, rr.Body.String())
+			require.Equal(t, wantErr, rr.Body.String())
 		})
 
 		t.Run("sets negative skip", func(t *testing.T) {
@@ -430,10 +430,10 @@ func TestGetStat(t *testing.T) {
 			handler := http.HandlerFunc(hostsRouter.GetStats)
 			handler.ServeHTTP(rr, req)
 
-			assert.Equal(t, http.StatusBadRequest, rr.Code)
+			require.Equal(t, http.StatusBadRequest, rr.Code)
 
 			wantErr := "No negative number allowed for the query param 'skip'\n"
-			assert.Equal(t, wantErr, rr.Body.String())
+			require.Equal(t, wantErr, rr.Body.String())
 		})
 
 		t.Run("sets skip to not a number", func(t *testing.T) {
@@ -449,10 +449,10 @@ func TestGetStat(t *testing.T) {
 			handler := http.HandlerFunc(hostsRouter.GetStats)
 			handler.ServeHTTP(rr, req)
 
-			assert.Equal(t, http.StatusBadRequest, rr.Code)
+			require.Equal(t, http.StatusBadRequest, rr.Code)
 
 			wantErr := "Query param 'skip' expected to be a number: a is not a number\n"
-			assert.Equal(t, wantErr, rr.Body.String())
+			require.Equal(t, wantErr, rr.Body.String())
 		})
 
 		t.Run("sets limit to not a number", func(t *testing.T) {
@@ -468,10 +468,10 @@ func TestGetStat(t *testing.T) {
 			handler := http.HandlerFunc(hostsRouter.GetStats)
 			handler.ServeHTTP(rr, req)
 
-			assert.Equal(t, http.StatusBadRequest, rr.Code)
+			require.Equal(t, http.StatusBadRequest, rr.Code)
 
 			wantErr := "Query param 'limit' expected to be a number: a is not a number\n"
-			assert.Equal(t, wantErr, rr.Body.String())
+			require.Equal(t, wantErr, rr.Body.String())
 		})
 	})
 
@@ -492,7 +492,7 @@ func TestGetStat(t *testing.T) {
 		handler := http.HandlerFunc(hostsRouter.GetStats)
 		handler.ServeHTTP(rr, req)
 
-		assert.Equal(t, hostname, hostDB.GetStatsByHostnameHostname())
+		require.Equal(t, hostname, hostDB.GetStatsByHostnameHostname())
 	})
 
 	t.Run("db has an item", func(t *testing.T) {
@@ -512,8 +512,8 @@ func TestGetStat(t *testing.T) {
 		handler := http.HandlerFunc(hostsRouter.GetStats)
 		handler.ServeHTTP(rr, req)
 
-		assert.Equal(t, http.StatusOK, rr.Code)
-		assert.Equal(t, hostname, hostDB.GetStatsByHostnameHostname())
+		require.Equal(t, http.StatusOK, rr.Code)
+		require.Equal(t, hostname, hostDB.GetStatsByHostnameHostname())
 
 		var gotBody []db.Stats
 		err = json.NewDecoder(rr.Body).Decode(&gotBody)
@@ -521,7 +521,7 @@ func TestGetStat(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		assert.Equal(t, stats, gotBody)
+		require.Equal(t, stats, gotBody)
 	})
 
 	t.Run("db returns not found error", func(t *testing.T) {
@@ -540,10 +540,10 @@ func TestGetStat(t *testing.T) {
 		handler := http.HandlerFunc(hostsRouter.GetStats)
 		handler.ServeHTTP(rr, req)
 
-		assert.Equal(t, http.StatusNotFound, rr.Code)
+		require.Equal(t, http.StatusNotFound, rr.Code)
 
 		wantErr := fmt.Sprintf("No host with the name '%s' found\n", hostname)
-		assert.Equal(t, wantErr, rr.Body.String())
+		require.Equal(t, wantErr, rr.Body.String())
 	})
 
 	t.Run("db returns all entries skipped error", func(t *testing.T) {
@@ -562,10 +562,10 @@ func TestGetStat(t *testing.T) {
 		handler := http.HandlerFunc(hostsRouter.GetStats)
 		handler.ServeHTTP(rr, req)
 
-		assert.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
 
 		wantErr := "db: All entries skipped\n"
-		assert.Equal(t, wantErr, rr.Body.String())
+		require.Equal(t, wantErr, rr.Body.String())
 	})
 
 	t.Run("db returns unknown error", func(t *testing.T) {
@@ -585,10 +585,10 @@ func TestGetStat(t *testing.T) {
 		handler := http.HandlerFunc(hostsRouter.GetStats)
 		handler.ServeHTTP(rr, req)
 
-		assert.Equal(t, http.StatusInternalServerError, rr.Code)
+		require.Equal(t, http.StatusInternalServerError, rr.Code)
 
 		wantErr := fmt.Sprintf("%s\n", unknownErr.Error())
-		assert.Equal(t, wantErr, rr.Body.String())
+		require.Equal(t, wantErr, rr.Body.String())
 	})
 }
 
@@ -610,10 +610,10 @@ func TestInsertStat(t *testing.T) {
 		handler := http.HandlerFunc(hostsRouter.PostStats)
 		handler.ServeHTTP(rr, req)
 
-		assert.Equal(t, http.StatusCreated, rr.Code)
-		assert.Equal(t, hostname, hostDB.GetInsertStatsHostname())
+		require.Equal(t, http.StatusCreated, rr.Code)
+		require.Equal(t, hostname, hostDB.GetInsertStatsHostname())
 
-		assert.Equal(t, stat, hostDB.GetInsertedStats())
+		require.Equal(t, stat, hostDB.GetInsertedStats())
 	})
 
 	t.Run("missing body", func(t *testing.T) {
@@ -631,8 +631,8 @@ func TestInsertStat(t *testing.T) {
 		handler := http.HandlerFunc(hostsRouter.PostStats)
 		handler.ServeHTTP(rr, req)
 
-		assert.Equal(t, http.StatusBadRequest, rr.Code)
-		assert.Equal(t, "Could not read the body\n", rr.Body.String())
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Equal(t, "Could not read the body\n", rr.Body.String())
 	})
 
 	t.Run("db returns an unknown error", func(t *testing.T) {
@@ -654,8 +654,8 @@ func TestInsertStat(t *testing.T) {
 		handler := http.HandlerFunc(hostsRouter.PostStats)
 		handler.ServeHTTP(rr, req)
 
-		assert.Equal(t, http.StatusInternalServerError, rr.Code)
-		assert.Equal(t, "Something with the DB went wrong.\n", rr.Body.String())
+		require.Equal(t, http.StatusInternalServerError, rr.Code)
+		require.Equal(t, "Something with the DB went wrong.\n", rr.Body.String())
 	})
 
 }
