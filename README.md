@@ -7,7 +7,7 @@ In the near future [gmon](https://github.com/hamburghammer/gmon) should use it t
 ## TODO
 - [x] Configure CI/CD pipeline
 - [x] HTTP testing
-- [ ] Auth Middleware with Basic Auth
+- [x] Auth Middleware with Basic Auth
 - [x] Flag configurable
 - [x] Logging
 - [ ] SQLite DB implementation
