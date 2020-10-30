@@ -24,7 +24,7 @@ var (
 
 func init() {
 	flag.IntVar(&servePort, "port", 8080, "The port for the HTTP server.")
-	verbose := flag.Bool("verbose", false, "Enable debug logging output.")
+	verbose := flag.Bool("verbose", false, "Enable trace logging level output.")
 	quiet := flag.Bool("quiet", false, "Disable loging output only prints errors.")
 	jsonLogging := flag.Bool("json", false, "Set the logging format to json.")
 	flag.Parse()
@@ -34,7 +34,7 @@ func init() {
 	})
 
 	if *verbose {
-		log.SetLevel(log.DebugLevel)
+		log.SetLevel(log.TraceLevel)
 	}
 	if *quiet {
 		log.SetLevel(log.ErrorLevel)
