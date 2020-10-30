@@ -13,6 +13,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/hamburghammer/gsave/controller"
+	"github.com/hamburghammer/gsave/controller/middleware"
 	"github.com/hamburghammer/gsave/db"
 	log "github.com/sirupsen/logrus"
 )
@@ -24,7 +25,7 @@ var (
 
 func init() {
 	flag.IntVar(&servePort, "port", 8080, "The port for the HTTP server.")
-	verbose := flag.Bool("verbose", false, "Enable debug logging output.")
+	verbose := flag.Bool("verbose", false, "Enable trace logging level output.")
 	quiet := flag.Bool("quiet", false, "Disable loging output only prints errors.")
 	jsonLogging := flag.Bool("json", false, "Set the logging format to json.")
 	flag.Parse()
@@ -34,7 +35,7 @@ func init() {
 	})
 
 	if *verbose {
-		log.SetLevel(log.DebugLevel)
+		log.SetLevel(log.TraceLevel)
 	}
 	if *quiet {
 		log.SetLevel(log.ErrorLevel)
@@ -62,12 +63,19 @@ func main() {
 	}
 	router := initRouter(hostDB, controllers)
 
+	auth := middleware.NewAuthMiddleware([]string{"foo"})
+	// Add default middlewares
+	router.Use(middleware.RequestTimeLoggingHandler)
+	router.Use(middleware.PanicRecoverHandler)
+	router.Use(auth.AuthHandler)
+
 	logPackage.Info("Starting the HTTP server...")
 	server := &http.Server{
 		Handler:      router,
 		Addr:         fmt.Sprintf(":%d", servePort),
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
+		IdleTimeout:  120 * time.Second,
 	}
 
 	var wg sync.WaitGroup
