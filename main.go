@@ -13,6 +13,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/hamburghammer/gsave/controller"
+	"github.com/hamburghammer/gsave/controller/middleware"
 	"github.com/hamburghammer/gsave/db"
 	log "github.com/sirupsen/logrus"
 )
@@ -61,6 +62,10 @@ func main() {
 		controller.NewHostsRouter(hostDB),
 	}
 	router := initRouter(hostDB, controllers)
+
+	// Add default middlewares
+	router.Use(middleware.RequestTimeLoggingHandler)
+	router.Use(middleware.PanicRecoverHandler)
 
 	logPackage.Info("Starting the HTTP server...")
 	server := &http.Server{
