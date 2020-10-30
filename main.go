@@ -63,9 +63,11 @@ func main() {
 	}
 	router := initRouter(hostDB, controllers)
 
+	auth := middleware.NewAuthMiddleware([]string{"foo"})
 	// Add default middlewares
 	router.Use(middleware.RequestTimeLoggingHandler)
 	router.Use(middleware.PanicRecoverHandler)
+	router.Use(auth.AuthHandler)
 
 	logPackage.Info("Starting the HTTP server...")
 	server := &http.Server{
