@@ -48,7 +48,7 @@ func init() {
 func main() {
 	logPackage.Info("Initializing the DB...")
 	stats := []db.Stats{
-		{Hostname: "foo", CPU: 0},
+		{Hostname: "foo", CPU: 0, Disk: db.Memory{Total: 10, Used: 5}, Mem: db.Memory{Total: 20, Used: 10}, Processes: []db.Process{{Name: "foo", Pid: 1, CPU: 0.5}}},
 		{Hostname: "foo", CPU: 1},
 		{Hostname: "bar", CPU: 0},
 	}
