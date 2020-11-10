@@ -81,10 +81,10 @@ func (db *InMemoryDB) InsertStats(hostname string, stats Stats) error {
 	db.m.Lock()
 	defer db.m.Unlock()
 
-	host, found := db.storage[stats.Hostname]
+	host, found := db.storage[hostname]
 	if !found {
-		hostInfo := HostInfo{Hostname: stats.Hostname, DataPoints: 1, LastInsert: time.Now()}
-		db.storage[stats.Hostname] = Host{HostInfo: hostInfo, Stats: []Stats{stats}}
+		hostInfo := HostInfo{Hostname: hostname, DataPoints: 1, LastInsert: time.Now()}
+		db.storage[hostname] = Host{HostInfo: hostInfo, Stats: []Stats{stats}}
 		return nil
 	}
 
@@ -92,6 +92,6 @@ func (db *InMemoryDB) InsertStats(hostname string, stats Stats) error {
 	host.HostInfo.DataPoints++
 	host.HostInfo.LastInsert = time.Now()
 
-	db.storage[stats.Hostname] = host
+	db.storage[hostname] = host
 	return nil
 }
