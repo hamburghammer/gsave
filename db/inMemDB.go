@@ -88,10 +88,18 @@ func (db *InMemoryDB) InsertStats(hostname string, stats Stats) error {
 		return nil
 	}
 
-	host.Stats = append(host.Stats, stats)
+	host.Stats = db.insertAtBeginning(host.Stats, stats)
 	host.HostInfo.DataPoints++
 	host.HostInfo.LastInsert = time.Now()
 
 	db.storage[hostname] = host
 	return nil
+}
+
+func (db *InMemoryDB) insertAtBeginning(stats []Stats, stat Stats) []Stats {
+	stats = append(stats, Stats{})
+	copy(stats[1:], stats)
+	stats[0] = stat
+
+	return stats
 }
