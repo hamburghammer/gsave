@@ -44,10 +44,16 @@ func (db *InMemoryDB) GetHosts(pagination Pagination) ([]HostInfo, error) {
 	if records < pagination.Skip {
 		return []HostInfo{}, ErrAllEntriesSkipped
 	} else if records < (pagination.Skip + pagination.Limit) {
-		return hosts[pagination.Skip:], nil
+		hosts = hosts[pagination.Skip:]
+		foundHosts := make([]HostInfo, len(hosts))
+		copy(foundHosts, hosts)
+		return foundHosts, nil
 	}
 
-	return hosts[pagination.Skip:(pagination.Skip + pagination.Limit)], nil
+	hosts = hosts[pagination.Skip:(pagination.Skip + pagination.Limit)]
+	foundHosts := make([]HostInfo, len(hosts))
+	copy(foundHosts, hosts)
+	return foundHosts, nil
 }
 
 // GetHost returns a host with the matching hostname.
@@ -79,10 +85,16 @@ func (db *InMemoryDB) GetStatsByHostname(hostname string, pagination Pagination)
 	if records < pagination.Skip {
 		return []Stats{}, ErrAllEntriesSkipped
 	} else if records < (pagination.Skip + pagination.Limit) {
-		return host.Stats[pagination.Skip:], nil
+		stats := host.Stats[pagination.Skip:]
+		foundStats := make([]Stats, len(stats))
+		copy(foundStats, stats)
+		return foundStats, nil
 	}
 
-	return host.Stats[pagination.Skip:(pagination.Skip + pagination.Limit)], nil
+	stats := host.Stats[pagination.Skip:(pagination.Skip + pagination.Limit)]
+	foundStats := make([]Stats, len(stats))
+	copy(foundStats, stats)
+	return foundStats, nil
 }
 
 // InsertStats into the DB.
