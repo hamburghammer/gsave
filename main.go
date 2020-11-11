@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"net/http"
 	"os"
@@ -15,6 +14,7 @@ import (
 	"github.com/hamburghammer/gsave/controller"
 	"github.com/hamburghammer/gsave/controller/middleware"
 	"github.com/hamburghammer/gsave/db"
+	"github.com/jessevdk/go-flags"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -23,24 +23,38 @@ var (
 	logPackage = log.WithField("Package", "main")
 )
 
+type arguments struct {
+	Port        int    `short:"p" long:"port" default:"8080" description:"The port for the HTTP server." env:"GSAVE_PORT"`
+	Token       string `short:"t" long:"token" required:"yes" description:"The token for the authentication through HTTP." env:"GSAVE_TOKEN"`
+	Verbose     bool   `short:"v" long:"verbose" description:"Enable trace logging level output."`
+	Quiet       bool   `short:"q" long:"quiet" description:"Disable standard logging output and only prints errors."`
+	JSONLogging bool   `long:"json" description:"Set the logging format to json."`
+}
+
 func init() {
-	flag.IntVar(&servePort, "port", 8080, "The port for the HTTP server.")
-	verbose := flag.Bool("verbose", false, "Enable trace logging level output.")
-	quiet := flag.Bool("quiet", false, "Disable loging output only prints errors.")
-	jsonLogging := flag.Bool("json", false, "Set the logging format to json.")
-	flag.Parse()
+	args := arguments{}
+	_, err := flags.Parse(&args)
+	if err != nil {
+		if _, ok := err.(*flags.Error); ok {
+			os.Exit(1)
+			return
+		}
+		logPackage.Fatal(err)
+	}
+
+	servePort = args.Port
 
 	log.SetFormatter(&log.TextFormatter{
 		FullTimestamp: true,
 	})
 
-	if *verbose {
+	if args.Verbose {
 		log.SetLevel(log.TraceLevel)
 	}
-	if *quiet {
+	if args.Quiet {
 		log.SetLevel(log.ErrorLevel)
 	}
-	if *jsonLogging {
+	if args.JSONLogging {
 		log.SetFormatter(&log.JSONFormatter{})
 	}
 }
