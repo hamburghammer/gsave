@@ -19,12 +19,18 @@ type InMemoryDB struct {
 // WithCustomStorage allows to put a custom map as DB storage.
 // Returns a new InMemoryDB.
 func (db *InMemoryDB) WithCustomStorage(storage map[string]Host) *InMemoryDB {
+	db.m.Lock()
+	defer db.m.Unlock()
+
 	return &InMemoryDB{storage: storage, m: sync.Mutex{}}
 }
 
 // GetHosts returns a paginated result of all hosts.
 // It returns an error if no host was found or all entries are beeing skiped.
 func (db *InMemoryDB) GetHosts(pagination Pagination) ([]HostInfo, error) {
+	db.m.Lock()
+	defer db.m.Unlock()
+
 	hosts := make([]HostInfo, 0)
 	for _, value := range db.storage {
 		hosts = append(hosts, value.HostInfo)
@@ -38,15 +44,24 @@ func (db *InMemoryDB) GetHosts(pagination Pagination) ([]HostInfo, error) {
 	if records < pagination.Skip {
 		return []HostInfo{}, ErrAllEntriesSkipped
 	} else if records < (pagination.Skip + pagination.Limit) {
-		return hosts[pagination.Skip:], nil
+		hosts = hosts[pagination.Skip:]
+		foundHosts := make([]HostInfo, len(hosts))
+		copy(foundHosts, hosts)
+		return foundHosts, nil
 	}
 
-	return hosts[pagination.Skip:(pagination.Skip + pagination.Limit)], nil
+	hosts = hosts[pagination.Skip:(pagination.Skip + pagination.Limit)]
+	foundHosts := make([]HostInfo, len(hosts))
+	copy(foundHosts, hosts)
+	return foundHosts, nil
 }
 
 // GetHost returns a host with the matching hostname.
 // If no host could be found it will return an error.
 func (db *InMemoryDB) GetHost(hostname string) (HostInfo, error) {
+	db.m.Lock()
+	defer db.m.Unlock()
+
 	host, found := db.storage[hostname]
 	if !found {
 		return HostInfo{}, ErrHostNotFound
@@ -58,6 +73,9 @@ func (db *InMemoryDB) GetHost(hostname string) (HostInfo, error) {
 // GetStatsByHostname gets all Stats in a paginated form from a specific host.
 // It returns errors if no host is found or if all entries are beeing skiped.
 func (db *InMemoryDB) GetStatsByHostname(hostname string, pagination Pagination) ([]Stats, error) {
+	db.m.Lock()
+	defer db.m.Unlock()
+
 	host, found := db.storage[hostname]
 	if !found {
 		return []Stats{}, ErrHostNotFound
@@ -67,10 +85,16 @@ func (db *InMemoryDB) GetStatsByHostname(hostname string, pagination Pagination)
 	if records < pagination.Skip {
 		return []Stats{}, ErrAllEntriesSkipped
 	} else if records < (pagination.Skip + pagination.Limit) {
-		return host.Stats[pagination.Skip:], nil
+		stats := host.Stats[pagination.Skip:]
+		foundStats := make([]Stats, len(stats))
+		copy(foundStats, stats)
+		return foundStats, nil
 	}
 
-	return host.Stats[pagination.Skip:(pagination.Skip + pagination.Limit)], nil
+	stats := host.Stats[pagination.Skip:(pagination.Skip + pagination.Limit)]
+	foundStats := make([]Stats, len(stats))
+	copy(foundStats, stats)
+	return foundStats, nil
 }
 
 // InsertStats into the DB.
@@ -81,17 +105,25 @@ func (db *InMemoryDB) InsertStats(hostname string, stats Stats) error {
 	db.m.Lock()
 	defer db.m.Unlock()
 
-	host, found := db.storage[stats.Hostname]
+	host, found := db.storage[hostname]
 	if !found {
-		hostInfo := HostInfo{Hostname: stats.Hostname, DataPoints: 1, LastInsert: time.Now()}
-		db.storage[stats.Hostname] = Host{HostInfo: hostInfo, Stats: []Stats{stats}}
+		hostInfo := HostInfo{Hostname: hostname, DataPoints: 1, LastInsert: time.Now()}
+		db.storage[hostname] = Host{HostInfo: hostInfo, Stats: []Stats{stats}}
 		return nil
 	}
 
-	host.Stats = append(host.Stats, stats)
+	host.Stats = db.insertAtBeginning(host.Stats, stats)
 	host.HostInfo.DataPoints++
 	host.HostInfo.LastInsert = time.Now()
 
-	db.storage[stats.Hostname] = host
+	db.storage[hostname] = host
 	return nil
+}
+
+func (db *InMemoryDB) insertAtBeginning(stats []Stats, stat Stats) []Stats {
+	stats = append(stats, Stats{})
+	copy(stats[1:], stats)
+	stats[0] = stat
+
+	return stats
 }

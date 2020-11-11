@@ -11,4 +11,4 @@ In the near future [gmon](https://github.com/hamburghammer/gmon) should use it t
 - [x] Flag configurable
 - [x] Logging
 - [ ] SQLite DB implementation
-- [ ] Env Variable configurable
+- [x] Env Variable configurable
