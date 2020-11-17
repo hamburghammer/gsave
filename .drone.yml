@@ -1,9 +1,9 @@
 kind: pipeline
 type: docker
-name: default
+name: tests
 
 steps:
-- name: unit-test
+- name: unit
   image: golang
   volumes:
   - name: cache
@@ -11,19 +11,27 @@ steps:
   commands:
   - go mod download
   - go test -coverprofile=coverage.out -covermode=count ./...
-  - go tool cover -html=coverage.out -o coverage.html
   - go tool cover -func=coverage.out | grep total
 
-- name: race-test
+- name: race
   image: golang
   volumes:
   - name: cache
     path: /go
   commands:
   - go mod download
-  - go test -race -short ./...
+  - go test -race ./...
 
-- name: build
+volumes:
+- name: cache
+  temp: {}
+
+---
+kind: pipeline
+name: builds
+
+steps:
+- name: go
   image: golang
   volumes:
   - name: cache
@@ -32,6 +40,15 @@ steps:
   - go mod download
   - go build
 
-volumes:
-- name: cache
-  temp: {}
+- name: docker
+  image: plugins/docker
+  settings:
+    registry: docker.pkg.github.com
+    username: hamburghammer
+    password:
+      from_secret: DOCKER_REGISTRY_KEY
+    repo: docker.pkg.github.com/hamburghammer/gsave/gsave
+    auto_tag: true
+
+depends_on:
+  - tests
